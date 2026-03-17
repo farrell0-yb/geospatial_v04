@@ -10,7 +10,7 @@ No C extensions. No PostGIS binary. Just SQL.
 
 ![GeoServer Layer Preview -- 344,688 points rendered via WMS from YugabyteDB](10%20-%20GeoServer.png)
 
-![GeoServer OpenLayers preview -- red dots rendered on the map](../11%20-%20WebApp.png)
+![GeoServer OpenLayers preview -- red dots rendered on the map](11%20-%20WebApp.png)
 
 ---
 
