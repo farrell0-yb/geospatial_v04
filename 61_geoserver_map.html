@@ -1,0 +1,182 @@
+
+
+<!doctype html>
+
+
+<html>
+
+
+    <head>
+        <title>YugabyteDB + GeoServer — Starbucks near Fort Collins</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            #map {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 100%;
+            }
+            #info {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                z-index: 1000;
+                background: white;
+                padding: 12px 16px;
+                border-radius: 6px;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+                font-family: sans-serif;
+                font-size: 13px;
+                max-width: 280px;
+            }
+            #info h3 {
+                margin: 0 0 6px 0;
+                font-size: 15px;
+            }
+        </style>
+    </head>
+
+
+    <body>
+
+
+        <div id="map"></div>
+        <div id="info">
+            <h3>Starbucks near Fort Collins</h3>
+            <div>25-mile radius from downtown</div>
+            <div id="count" style="margin-top: 6px; color: #666"></div>
+        </div>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            // Downtown Fort Collins
+            var center = [40.5853, -105.0775];
+            var radiusMiles = 25;
+            var radiusMeters = radiusMiles * 1609.34;
+
+            // Bounding box: ~25 miles in degrees (rough: 1 deg lat ~ 69 mi, 1 deg lon ~ 53 mi at 40N)
+            var dLat = radiusMiles / 69.0;
+            var dLon = radiusMiles / 53.0;
+            var bbox = [
+                center[1] - dLon,
+                center[0] - dLat,
+                center[1] + dLon,
+                center[0] + dLat,
+            ];
+
+            // CQL filter: name contains 'Starbucks' (case-insensitive)
+            var cqlFilter = "strConcat(md_name,'') ILIKE '%Starbucks%'";
+
+            var map = L.map("map").setView(center, 11);
+
+            // CartoDB Positron base layer (permits local file access)
+            L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+                    maxZoom: 19,
+                    subdomains: "abcd",
+                    attribution:
+                        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                },
+            ).addTo(map);
+
+            // 25-mile radius circle
+            L.circle(center, {
+                radius: radiusMeters,
+                color: "#3388ff",
+                fillColor: "#3388ff",
+                fillOpacity: 0.05,
+                weight: 2,
+            }).addTo(map);
+
+            // Haversine distance in miles
+            function haversine(lat1, lon1, lat2, lon2) {
+                var R = 3958.8; // Earth radius in miles
+                var dLat2 = ((lat2 - lat1) * Math.PI) / 360;
+                var dLon2 = ((lon2 - lon1) * Math.PI) / 360;
+                var a =
+                    Math.sin(dLat2) * Math.sin(dLat2) +
+                    Math.cos((lat1 * Math.PI) / 180) *
+                        Math.cos((lat2 * Math.PI) / 180) *
+                        Math.sin(dLon2) *
+                        Math.sin(dLon2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            }
+
+            // CQL filter: Starbucks within bounding box (server-side rough filter)
+            var bboxCql =
+                "md_name ILIKE '%Starbucks%'" +
+                " AND BBOX(geom," +
+                bbox.join(",") +
+                ")";
+
+            // No WMS overlay — we render markers client-side for precise filtering
+
+            // Fetch via WFS, then filter client-side by true Haversine distance
+            fetch(
+                "http://localhost:8080/geoserver/yugabyte/wfs?service=WFS&version=1.0.0" +
+                    "&request=GetFeature&typeName=yugabyte:my_mapdata" +
+                    "&outputFormat=application/json&maxFeatures=500" +
+                    "&CQL_FILTER=" +
+                    encodeURIComponent(bboxCql),
+            )
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (data) {
+                    var features = data.features || [];
+                    // Filter to exact radius using Haversine
+                    var inRadius = features.filter(function (f) {
+                        var c = f.geometry.coordinates;
+                        return (
+                            haversine(center[0], center[1], c[1], c[0]) <=
+                            radiusMiles
+                        );
+                    });
+                    document.getElementById("count").textContent =
+                        inRadius.length + " locations found";
+                    // Add popups for each Starbucks
+                    inRadius.forEach(function (f) {
+                        var c = f.geometry.coordinates;
+                        var dist = haversine(
+                            center[0],
+                            center[1],
+                            c[1],
+                            c[0],
+                        ).toFixed(1);
+                        L.marker([c[1], c[0]])
+                            .bindPopup(
+                                "<b>" +
+                                    f.properties.md_name +
+                                    "</b><br>" +
+                                    f.properties.md_address +
+                                    "<br>" +
+                                    f.properties.md_city +
+                                    ", " +
+                                    f.properties.md_province +
+                                    "<br><i>" +
+                                    dist +
+                                    " miles</i>",
+                            )
+                            .addTo(map);
+                    });
+                });
+        </script>
+
+
+    </body>
+
+
+</html>
+
+
+
+
