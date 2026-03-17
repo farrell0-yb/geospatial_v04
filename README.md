@@ -8,9 +8,9 @@ the box.
 
 No C extensions. No PostGIS binary. Just SQL.
 
-![GeoServer Layer Preview -- 344,688 points rendered via WMS from YugabyteDB](../01%20-%20Images/Screenshot%202026-03-16%20at%2017.19.17.png)
+![GeoServer Layer Preview -- 344,688 points rendered via WMS from YugabyteDB](../10%20-%20GeoServer.png)
 
-![GeoServer OpenLayers preview -- red dots rendered on the map](../01%20-%20Images/Screenshot%202026-03-16%20at%2017.19.30.png)
+![GeoServer OpenLayers preview -- red dots rendered on the map](../11%20-%20WebApp.png)
 
 ---
 
